@@ -1,0 +1,17 @@
+{
+  "cluster": "devnet",
+  "program": "5BSoxqzNLqi7aZxLMRWCGXCm186aaUzswjHV7i99P9FW",
+  "mint": "FqLbwGWwNQ5PBYZhEbmfPMX9yw13easpRqtxh3CLY6T5",
+  "mintSymbol": "dUSDC",
+  "decimals": 6,
+  "owner": "5QmVpoNvywtdEAPYnimaYQnT46oPjP7G3UAhNVPmS3Ex",
+  "agent": "HLyJPbhPwCDwbQb5dDxCk7qWCFQNfSfnjq2iVuxdDvve",
+  "mandate": "BR5i6CNhXYgLqfVfZvLQuZ4SJ88WTUAh3huW963NFUEf",
+  "vault": "Fedj9m9EsAo4gYmfvGaBbsMeZBNRkRWpsY1p36ddRgxH",
+  "merchantA": "Aoy8Ufnrfm8ENuhrF7F3SfEfEmNa8S3xJgtf8TFh4RxD",
+  "attacker": "AuDXGYZJSYBdc8YuMVbvJobvxsL4G96oGcTKnzkCECDc",
+  "proof": {
+    "approvedPay": "https://explorer.solana.com/tx/2JitLeznYhKmPQX4qwQoKzeG43Zo1PvjdiRGDXsbnKVrRTJxa5C7EcmGgigS5XxHkGF2PYaaNGQ8HtRhAsEEqud?cluster=devnet",
+    "rejectedPay": "https://explorer.solana.com/tx/3DAUzAqa55zwhHSnBUJrEfENjLQBqU7HU5ZGSAgo9eXmH14XDRzeFVerWNicmovH6SrfdtRj149f4uSS8UEESZ7K?cluster=devnet"
+  }
+}
