@@ -16,3 +16,5 @@ keys/*.json
 id.json
 .env*
 !.env.example
+*.tsbuildinfo
+next-env.d.ts
