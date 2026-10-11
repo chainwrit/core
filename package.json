@@ -7,7 +7,11 @@
     "test": "anchor test",
     "test:rules": "cargo test -p chainwrit",
     "lint": "prettier --check 'tests/**/*.ts'",
-    "lint:fix": "prettier --write 'tests/**/*.ts'"
+    "lint:fix": "prettier --write 'tests/**/*.ts'",
+    "build:sdk": "yarn --cwd sdk sync-idl && yarn --cwd sdk build",
+    "build:mcp": "yarn --cwd mcp-server build",
+    "seed": "ts-node --transpile-only scripts/seed-devnet.ts",
+    "attack": "ts-node --transpile-only scripts/attack.ts"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.32.1",
@@ -23,5 +27,11 @@
     "prettier": "^3.4.2",
     "ts-mocha": "^10.1.0",
     "typescript": "^5.7.3"
-  }
+  },
+  "private": true,
+  "workspaces": [
+    "sdk",
+    "mcp-server",
+    "web"
+  ]
 }
