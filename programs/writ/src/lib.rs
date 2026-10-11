@@ -16,6 +16,8 @@
 
 use anchor_lang::prelude::*;
 
+pub mod rules;
+
 // Placeholder program id. `anchor keys sync` replaces this with the keypair in
 // target/deploy once you build locally.
 declare_id!("6cc4F1dBC34KwyJFphJqAJfuSudNhUA6W2UNozUsVqrT");
