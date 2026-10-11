@@ -139,7 +139,11 @@ async function main() {
   console.log("wrote", DEPLOYMENTS);
 }
 
-main().catch((err) => {
+// web3.js keeps a websocket open after confirmations, which would hold the
+// process alive indefinitely.
+main()
+  .then(() => process.exit(0))
+  .catch((err) => {
   console.error(err);
   process.exit(1);
 });
