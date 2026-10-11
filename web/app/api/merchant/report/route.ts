@@ -40,7 +40,7 @@ async function verify(signature: string): Promise<string | null> {
 
   const keys = tx.transaction.message.getAccountKeys().staticAccountKeys;
   const invoked = tx.transaction.message.compiledInstructions.some(
-    (ix) => keys[ix.programIdIndex].equals(c.programId) && ix.accountKeyIndexes.some((i) => keys[i].equals(c.mandate)),
+    (ix) => keys[ix.programIdIndex].equals(c.programId) && ix.accountKeyIndexes.some((i) => c.acceptedMandates.some((m) => keys[i].equals(m))),
   );
   if (!invoked) return "payment did not go through the Chainwrit mandate";
 

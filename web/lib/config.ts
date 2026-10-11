@@ -20,6 +20,11 @@ export function config() {
     mandate: new PublicKey(env("MANDATE")),
     merchantA: new PublicKey(env("MERCHANT_A")),
     attacker: new PublicKey(env("ATTACKER")),
+    // Mandates whose payments the merchant accepts as proof, e.g. the web demo
+    // agent plus an agent running in an MCP client.
+    acceptedMandates: (process.env.ACCEPTED_MANDATES ?? env("MANDATE"))
+      .split(",")
+      .map((s) => new PublicKey(s.trim())),
   };
 }
 
