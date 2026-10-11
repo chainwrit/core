@@ -15,6 +15,7 @@
 //! outside the mandate.
 
 use anchor_lang::prelude::*;
+use anchor_spl::token::{self, Mint, Token, TokenAccount, TransferChecked};
 
 pub mod rules;
 
@@ -34,6 +35,56 @@ pub const WINDOW_SECONDS: i64 = 86_400;
 #[program]
 pub mod writ {
     use super::*;
+
+    /// Create a mandate: the human's signed statement of what the agent may spend.
+    ///
+    /// The mandate account is a PDA derived from the owner and the agent, so one
+    /// owner can run many agents with different limits.
+    pub fn create_mandate(
+        ctx: Context<CreateMandate>,
+        max_per_payment: u64,
+        daily_limit: u64,
+        expires_at: i64,
+        merchants: Vec<Pubkey>,
+    ) -> Result<()> {
+        require!(max_per_payment > 0, WritError::InvalidLimit);
+        require!(daily_limit >= max_per_payment, WritError::InvalidLimit);
+        require!(!merchants.is_empty(), WritError::EmptyMerchantList);
+        require!(
+            merchants.len() <= MAX_MERCHANTS,
+            WritError::TooManyMerchants
+        );
+
+        let now = Clock::get()?.unix_timestamp;
+        require!(expires_at > now, WritError::ExpiryInPast);
+
+        let mandate = &mut ctx.accounts.mandate;
+        mandate.owner = ctx.accounts.owner.key();
+        mandate.agent = ctx.accounts.agent.key();
+        mandate.mint = ctx.accounts.mint.key();
+        mandate.vault = ctx.accounts.vault.key();
+        mandate.max_per_payment = max_per_payment;
+        mandate.daily_limit = daily_limit;
+        mandate.spent_in_window = 0;
+        mandate.window_start = now;
+        mandate.expires_at = expires_at;
+        mandate.revoked = false;
+        mandate.total_spent = 0;
+        mandate.payment_count = 0;
+        mandate.merchants = merchants;
+        mandate.bump = ctx.bumps.mandate;
+
+        emit!(MandateCreated {
+            mandate: mandate.key(),
+            owner: mandate.owner,
+            agent: mandate.agent,
+            max_per_payment,
+            daily_limit,
+            expires_at,
+        });
+
+        Ok(())
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -88,6 +139,58 @@ impl Mandate {
         + 8   // payment_count
         + 4 + (32 * MAX_MERCHANTS) // merchants
         + 1; // bump
+}
+
+#[derive(Accounts)]
+pub struct CreateMandate<'info> {
+    #[account(mut)]
+    pub owner: Signer<'info>,
+
+    /// CHECK: stored as the only key allowed to request payments. It never signs
+    /// here, so no further validation is possible or needed.
+    pub agent: UncheckedAccount<'info>,
+
+    pub mint: Account<'info, Mint>,
+
+    #[account(
+        init,
+        payer = owner,
+        space = Mandate::SPACE,
+        seeds = [b"mandate", owner.key().as_ref(), agent.key().as_ref()],
+        bump
+    )]
+    pub mandate: Account<'info, Mandate>,
+
+    /// The vault holding the funds. Its authority is the mandate PDA, which has
+    /// no private key, so nobody can move these funds except through `pay` or
+    /// `withdraw`.
+    #[account(
+        init,
+        payer = owner,
+        seeds = [b"vault", mandate.key().as_ref()],
+        bump,
+        token::mint = mint,
+        token::authority = mandate
+    )]
+    pub vault: Account<'info, TokenAccount>,
+
+    pub token_program: Program<'info, Token>,
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+// ---------------------------------------------------------------------------
+// Events
+// ---------------------------------------------------------------------------
+
+#[event]
+pub struct MandateCreated {
+    pub mandate: Pubkey,
+    pub owner: Pubkey,
+    pub agent: Pubkey,
+    pub max_per_payment: u64,
+    pub daily_limit: u64,
+    pub expires_at: i64,
 }
 
 // ---------------------------------------------------------------------------
