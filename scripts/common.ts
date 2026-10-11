@@ -4,7 +4,8 @@ import path from "path";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 
 export const ROOT = path.resolve(__dirname, "..");
-export const DEPLOYMENTS = path.join(ROOT, "deployments", "devnet.json");
+// One file per mandate, so a demo can run against a fresh daily cap.
+export const DEPLOYMENTS = path.resolve(ROOT, process.env.DEPLOYMENTS_FILE ?? "deployments/devnet.json");
 
 // Keypairs live outside the repo so they can never be committed.
 export const KEYS_DIR = process.env.KEYS_DIR ?? path.resolve(ROOT, "..", "keys");

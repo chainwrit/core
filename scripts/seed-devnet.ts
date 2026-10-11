@@ -63,13 +63,14 @@ async function main() {
     console.log("funded agent with 0.2 SOL for fees");
   }
 
-  const mint = prev.mint
-    ? pk(prev.mint)
+  const reuseMint = prev.mint ?? process.env.MINT;
+  const mint = reuseMint
+    ? pk(reuseMint)
     : await createMint(conn, owner, owner.publicKey, null, DECIMALS);
   console.log("dUSDC   ", mint.toBase58());
 
   const ownerAta = await getOrCreateAssociatedTokenAccount(conn, owner, mint, owner.publicKey);
-  if (!prev.mint) {
+  if (!reuseMint) {
     await mintTo(conn, owner, mint, ownerAta.address, owner, toBaseUnits(1000, DECIMALS));
     console.log("minted 1000 dUSDC to owner");
   }
@@ -144,6 +145,6 @@ async function main() {
 main()
   .then(() => process.exit(0))
   .catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+    console.error(err);
+    process.exit(1);
+  });
