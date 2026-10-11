@@ -87,3 +87,46 @@ impl Mandate {
         + 4 + (32 * MAX_MERCHANTS) // merchants
         + 1; // bump
 }
+
+// ---------------------------------------------------------------------------
+// Errors
+// ---------------------------------------------------------------------------
+
+#[error_code]
+#[derive(PartialEq, Eq)]
+pub enum WritError {
+    #[msg("This merchant is not on the mandate's allowlist")]
+    MerchantNotAllowed,
+    #[msg("Payment exceeds the per-payment limit")]
+    ExceedsPerPaymentLimit,
+    #[msg("Payment would exceed the rolling 24-hour limit")]
+    ExceedsDailyLimit,
+    #[msg("This mandate has expired")]
+    MandateExpired,
+    #[msg("This mandate has been revoked")]
+    MandateRevoked,
+    #[msg("Signer is not the agent named in this mandate")]
+    NotMandateAgent,
+    #[msg("Signer is not the owner of this mandate")]
+    NotMandateOwner,
+    #[msg("Token mint does not match the mandate")]
+    WrongMint,
+    #[msg("Vault does not match the mandate")]
+    WrongVault,
+    #[msg("Amount must be greater than zero")]
+    ZeroAmount,
+    #[msg("Limits must be greater than zero and the daily limit at least the per-payment limit")]
+    InvalidLimit,
+    #[msg("A mandate must allow at least one merchant")]
+    EmptyMerchantList,
+    #[msg("Too many merchants for one mandate")]
+    TooManyMerchants,
+    #[msg("Expiry must be in the future")]
+    ExpiryInPast,
+    #[msg("Task id is too long")]
+    TaskIdTooLong,
+    #[msg("Vault does not hold enough tokens")]
+    InsufficientVaultBalance,
+    #[msg("Arithmetic overflow")]
+    MathOverflow,
+}
