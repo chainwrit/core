@@ -106,6 +106,90 @@ pub mod writ {
 
         Ok(())
     }
+
+    /// Pay a merchant on the agent's behalf, if and only if the payment fits the
+    /// mandate.
+    ///
+    /// This is the heart of the program. Every check below runs on-chain, so a
+    /// compromised agent, server or signing key cannot skip them.
+    pub fn pay(ctx: Context<Pay>, amount: u64, task_id: String) -> Result<()> {
+        let now = Clock::get()?.unix_timestamp;
+        let merchant = ctx.accounts.merchant_token_account.owner;
+
+        // Ask the policy engine. It reads state and returns the state to commit,
+        // or the specific rule that rejected the payment. Nothing is mutated
+        // until it says yes, so a rejected payment leaves the mandate untouched.
+        let approval = {
+            let mandate = &ctx.accounts.mandate;
+            rules::evaluate(
+                rules::SpendState {
+                    revoked: mandate.revoked,
+                    expires_at: mandate.expires_at,
+                    max_per_payment: mandate.max_per_payment,
+                    daily_limit: mandate.daily_limit,
+                    spent_in_window: mandate.spent_in_window,
+                    window_start: mandate.window_start,
+                },
+                &mandate.merchants,
+                rules::PaymentRequest {
+                    amount,
+                    merchant,
+                    task_id: &task_id,
+                },
+                now,
+            )?
+        };
+
+        // Approved. The mandate PDA signs its own vault's transfer.
+        let mandate = &ctx.accounts.mandate;
+        let owner_key = mandate.owner;
+        let agent_key = mandate.agent;
+        let signer_seeds: &[&[&[u8]]] = &[&[
+            b"mandate",
+            owner_key.as_ref(),
+            agent_key.as_ref(),
+            &[mandate.bump],
+        ]];
+
+        token::transfer_checked(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                TransferChecked {
+                    from: ctx.accounts.vault.to_account_info(),
+                    mint: ctx.accounts.mint.to_account_info(),
+                    to: ctx.accounts.merchant_token_account.to_account_info(),
+                    authority: ctx.accounts.mandate.to_account_info(),
+                },
+                signer_seeds,
+            ),
+            amount,
+            ctx.accounts.mint.decimals,
+        )?;
+
+        let mandate = &mut ctx.accounts.mandate;
+        mandate.window_start = approval.window_start;
+        mandate.spent_in_window = approval.spent_in_window;
+        mandate.total_spent = mandate
+            .total_spent
+            .checked_add(amount)
+            .ok_or(WritError::MathOverflow)?;
+        mandate.payment_count = mandate
+            .payment_count
+            .checked_add(1)
+            .ok_or(WritError::MathOverflow)?;
+
+        emit!(PaymentExecuted {
+            mandate: mandate.key(),
+            agent: mandate.agent,
+            merchant,
+            amount,
+            task_id,
+            spent_in_window: mandate.spent_in_window,
+            timestamp: now,
+        });
+
+        Ok(())
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -230,6 +314,37 @@ pub struct Deposit<'info> {
     pub token_program: Program<'info, Token>,
 }
 
+#[derive(Accounts)]
+pub struct Pay<'info> {
+    /// The agent requesting the payment. Signing proves it is the agent named in
+    /// the mandate; it proves nothing about whether the payment is a good idea,
+    /// which is exactly why the program checks the rules below.
+    pub agent: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"mandate", mandate.owner.as_ref(), mandate.agent.as_ref()],
+        bump = mandate.bump,
+        has_one = agent @ WritError::NotMandateAgent,
+        has_one = mint @ WritError::WrongMint,
+        has_one = vault @ WritError::WrongVault,
+    )]
+    pub mandate: Account<'info, Mandate>,
+
+    pub mint: Account<'info, Mint>,
+
+    #[account(mut)]
+    pub vault: Account<'info, TokenAccount>,
+
+    #[account(
+        mut,
+        constraint = merchant_token_account.mint == mandate.mint @ WritError::WrongMint,
+    )]
+    pub merchant_token_account: Account<'info, TokenAccount>,
+
+    pub token_program: Program<'info, Token>,
+}
+
 // ---------------------------------------------------------------------------
 // Events
 // ---------------------------------------------------------------------------
@@ -242,6 +357,19 @@ pub struct MandateCreated {
     pub max_per_payment: u64,
     pub daily_limit: u64,
     pub expires_at: i64,
+}
+
+/// Emitted on every successful payment. The indexer turns these into per-agent
+/// and per-task spend reporting.
+#[event]
+pub struct PaymentExecuted {
+    pub mandate: Pubkey,
+    pub agent: Pubkey,
+    pub merchant: Pubkey,
+    pub amount: u64,
+    pub task_id: String,
+    pub spent_in_window: u64,
+    pub timestamp: i64,
 }
 
 // ---------------------------------------------------------------------------
