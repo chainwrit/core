@@ -85,6 +85,27 @@ pub mod writ {
 
         Ok(())
     }
+
+    /// Fund the mandate's vault from the owner's own token account.
+    pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
+        require!(amount > 0, WritError::ZeroAmount);
+
+        token::transfer_checked(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                TransferChecked {
+                    from: ctx.accounts.owner_token_account.to_account_info(),
+                    mint: ctx.accounts.mint.to_account_info(),
+                    to: ctx.accounts.vault.to_account_info(),
+                    authority: ctx.accounts.owner.to_account_info(),
+                },
+            ),
+            amount,
+            ctx.accounts.mint.decimals,
+        )?;
+
+        Ok(())
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -177,6 +198,36 @@ pub struct CreateMandate<'info> {
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
+}
+
+#[derive(Accounts)]
+pub struct Deposit<'info> {
+    #[account(mut)]
+    pub owner: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"mandate", mandate.owner.as_ref(), mandate.agent.as_ref()],
+        bump = mandate.bump,
+        has_one = owner @ WritError::NotMandateOwner,
+        has_one = mint @ WritError::WrongMint,
+        has_one = vault @ WritError::WrongVault,
+    )]
+    pub mandate: Account<'info, Mandate>,
+
+    pub mint: Account<'info, Mint>,
+
+    #[account(mut)]
+    pub vault: Account<'info, TokenAccount>,
+
+    #[account(
+        mut,
+        constraint = owner_token_account.owner == owner.key() @ WritError::NotMandateOwner,
+        constraint = owner_token_account.mint == mandate.mint @ WritError::WrongMint,
+    )]
+    pub owner_token_account: Account<'info, TokenAccount>,
+
+    pub token_program: Program<'info, Token>,
 }
 
 // ---------------------------------------------------------------------------
