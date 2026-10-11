@@ -6,5 +6,13 @@ node_modules
 test-ledger
 .yarn
 dist
-.env
 *.log
+.vercel
+.next
+
+# secrets
+keys/*.json
+*-keypair.json
+id.json
+.env*
+!.env.example
