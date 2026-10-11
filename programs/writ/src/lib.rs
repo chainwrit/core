@@ -205,6 +205,42 @@ pub mod writ {
 
         Ok(())
     }
+
+    /// Withdraw funds from the vault back to the owner. Only the owner may do this.
+    pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
+        require!(amount > 0, WritError::ZeroAmount);
+        require!(
+            ctx.accounts.vault.amount >= amount,
+            WritError::InsufficientVaultBalance
+        );
+
+        let mandate = &ctx.accounts.mandate;
+        let owner_key = mandate.owner;
+        let agent_key = mandate.agent;
+        let signer_seeds: &[&[&[u8]]] = &[&[
+            b"mandate",
+            owner_key.as_ref(),
+            agent_key.as_ref(),
+            &[mandate.bump],
+        ]];
+
+        token::transfer_checked(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                TransferChecked {
+                    from: ctx.accounts.vault.to_account_info(),
+                    mint: ctx.accounts.mint.to_account_info(),
+                    to: ctx.accounts.owner_token_account.to_account_info(),
+                    authority: ctx.accounts.mandate.to_account_info(),
+                },
+                signer_seeds,
+            ),
+            amount,
+            ctx.accounts.mint.decimals,
+        )?;
+
+        Ok(())
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -371,6 +407,35 @@ pub struct Revoke<'info> {
         has_one = owner @ WritError::NotMandateOwner,
     )]
     pub mandate: Account<'info, Mandate>,
+}
+
+#[derive(Accounts)]
+pub struct Withdraw<'info> {
+    #[account(mut)]
+    pub owner: Signer<'info>,
+
+    #[account(
+        seeds = [b"mandate", mandate.owner.as_ref(), mandate.agent.as_ref()],
+        bump = mandate.bump,
+        has_one = owner @ WritError::NotMandateOwner,
+        has_one = mint @ WritError::WrongMint,
+        has_one = vault @ WritError::WrongVault,
+    )]
+    pub mandate: Account<'info, Mandate>,
+
+    pub mint: Account<'info, Mint>,
+
+    #[account(mut)]
+    pub vault: Account<'info, TokenAccount>,
+
+    #[account(
+        mut,
+        constraint = owner_token_account.owner == owner.key() @ WritError::NotMandateOwner,
+        constraint = owner_token_account.mint == mandate.mint @ WritError::WrongMint,
+    )]
+    pub owner_token_account: Account<'info, TokenAccount>,
+
+    pub token_program: Program<'info, Token>,
 }
 
 // ---------------------------------------------------------------------------
