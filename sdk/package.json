@@ -1,0 +1,21 @@
+{
+  "name": "@chainwrit/sdk",
+  "version": "0.1.0",
+  "description": "TypeScript client for the Chainwrit program",
+  "license": "Apache-2.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "sync-idl": "cp ../target/idl/chainwrit.json src/idl/chainwrit.json && cp ../target/types/chainwrit.ts src/idl/chainwrit.ts"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.32.1",
+    "@solana/spl-token": "^0.4.15",
+    "@solana/web3.js": "^1.99.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}
