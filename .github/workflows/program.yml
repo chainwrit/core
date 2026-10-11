@@ -6,15 +6,33 @@ on:
   pull_request:
   workflow_dispatch:
 
+env:
+  SOLANA_VERSION: v2.3.0
+  ANCHOR_VERSION: 0.32.1
+
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
-    container: solanafoundation/anchor:v0.32.1
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - name: Policy engine unit tests
         run: cargo test -p chainwrit
+
+      - name: Install Solana CLI
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/${SOLANA_VERSION}/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+
+      - name: Install Anchor CLI
+        run: |
+          curl -sSfL -o anchor "https://github.com/solana-foundation/anchor/releases/download/v${ANCHOR_VERSION}/anchor-${ANCHOR_VERSION}-x86_64-unknown-linux-gnu"
+          chmod +x anchor && sudo mv anchor /usr/local/bin/anchor
+          anchor --version
 
       - name: Build program and IDL
         run: anchor build
@@ -26,3 +44,9 @@ jobs:
             target/deploy/chainwrit.so
             target/idl/chainwrit.json
             target/types/chainwrit.ts
+
+      - name: Integration tests on a local validator
+        run: |
+          solana-keygen new --no-bip39-passphrase -s -o ~/.config/solana/id.json
+          yarn install --frozen-lockfile --ignore-engines
+          anchor test --skip-build
