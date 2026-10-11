@@ -1,0 +1,10 @@
+target
+node_modules
+**/node_modules
+test-ledger
+.anchor
+programs
+tests
+**/.next
+**/dist
+**/.env*
