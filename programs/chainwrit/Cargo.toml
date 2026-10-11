@@ -1,12 +1,12 @@
 [package]
-name = "writ"
+name = "chainwrit"
 version = "0.1.0"
 description = "On-chain spending mandates for autonomous AI agents"
 edition = "2021"
 
 [lib]
 crate-type = ["cdylib", "lib"]
-name = "writ"
+name = "chainwrit"
 
 [features]
 default = []

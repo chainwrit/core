@@ -1,10 +1,10 @@
-//! Writ — on-chain spending mandates for autonomous AI agents.
+//! Chainwrit — on-chain spending mandates for autonomous AI agents.
 //!
 //! An AI agent that can pay for things is only as trustworthy as the content it
 //! reads. A prompt injection hidden in a web page can tell an agent to send
 //! money to an attacker, and on-chain payments are final.
 //!
-//! Writ moves the spending rules off the agent and onto the chain. The human
+//! Chainwrit moves the spending rules off the agent and onto the chain. The human
 //! signs a mandate: which merchants may be paid, how much per payment, how much
 //! per day, and until when. Funds live in a vault owned by a program-derived
 //! address with no private key. The agent can only *request* a payment; the
@@ -33,7 +33,7 @@ pub const MAX_TASK_ID_LEN: usize = 32;
 pub const WINDOW_SECONDS: i64 = 86_400;
 
 #[program]
-pub mod writ {
+pub mod chainwrit {
     use super::*;
 
     /// Create a mandate: the human's signed statement of what the agent may spend.
@@ -47,16 +47,16 @@ pub mod writ {
         expires_at: i64,
         merchants: Vec<Pubkey>,
     ) -> Result<()> {
-        require!(max_per_payment > 0, WritError::InvalidLimit);
-        require!(daily_limit >= max_per_payment, WritError::InvalidLimit);
-        require!(!merchants.is_empty(), WritError::EmptyMerchantList);
+        require!(max_per_payment > 0, ChainwritError::InvalidLimit);
+        require!(daily_limit >= max_per_payment, ChainwritError::InvalidLimit);
+        require!(!merchants.is_empty(), ChainwritError::EmptyMerchantList);
         require!(
             merchants.len() <= MAX_MERCHANTS,
-            WritError::TooManyMerchants
+            ChainwritError::TooManyMerchants
         );
 
         let now = Clock::get()?.unix_timestamp;
-        require!(expires_at > now, WritError::ExpiryInPast);
+        require!(expires_at > now, ChainwritError::ExpiryInPast);
 
         let mandate = &mut ctx.accounts.mandate;
         mandate.owner = ctx.accounts.owner.key();
@@ -88,7 +88,7 @@ pub mod writ {
 
     /// Fund the mandate's vault from the owner's own token account.
     pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
-        require!(amount > 0, WritError::ZeroAmount);
+        require!(amount > 0, ChainwritError::ZeroAmount);
 
         token::transfer_checked(
             CpiContext::new(
@@ -172,11 +172,11 @@ pub mod writ {
         mandate.total_spent = mandate
             .total_spent
             .checked_add(amount)
-            .ok_or(WritError::MathOverflow)?;
+            .ok_or(ChainwritError::MathOverflow)?;
         mandate.payment_count = mandate
             .payment_count
             .checked_add(1)
-            .ok_or(WritError::MathOverflow)?;
+            .ok_or(ChainwritError::MathOverflow)?;
 
         emit!(PaymentExecuted {
             mandate: mandate.key(),
@@ -194,7 +194,7 @@ pub mod writ {
     /// Revoke the mandate. Takes effect on the next payment attempt, immediately.
     pub fn revoke(ctx: Context<Revoke>) -> Result<()> {
         let mandate = &mut ctx.accounts.mandate;
-        require!(!mandate.revoked, WritError::MandateRevoked);
+        require!(!mandate.revoked, ChainwritError::MandateRevoked);
         mandate.revoked = true;
 
         emit!(MandateRevoked {
@@ -208,10 +208,10 @@ pub mod writ {
 
     /// Withdraw funds from the vault back to the owner. Only the owner may do this.
     pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
-        require!(amount > 0, WritError::ZeroAmount);
+        require!(amount > 0, ChainwritError::ZeroAmount);
         require!(
             ctx.accounts.vault.amount >= amount,
-            WritError::InsufficientVaultBalance
+            ChainwritError::InsufficientVaultBalance
         );
 
         let mandate = &ctx.accounts.mandate;
@@ -344,9 +344,9 @@ pub struct Deposit<'info> {
         mut,
         seeds = [b"mandate", mandate.owner.as_ref(), mandate.agent.as_ref()],
         bump = mandate.bump,
-        has_one = owner @ WritError::NotMandateOwner,
-        has_one = mint @ WritError::WrongMint,
-        has_one = vault @ WritError::WrongVault,
+        has_one = owner @ ChainwritError::NotMandateOwner,
+        has_one = mint @ ChainwritError::WrongMint,
+        has_one = vault @ ChainwritError::WrongVault,
     )]
     pub mandate: Account<'info, Mandate>,
 
@@ -357,8 +357,8 @@ pub struct Deposit<'info> {
 
     #[account(
         mut,
-        constraint = owner_token_account.owner == owner.key() @ WritError::NotMandateOwner,
-        constraint = owner_token_account.mint == mandate.mint @ WritError::WrongMint,
+        constraint = owner_token_account.owner == owner.key() @ ChainwritError::NotMandateOwner,
+        constraint = owner_token_account.mint == mandate.mint @ ChainwritError::WrongMint,
     )]
     pub owner_token_account: Account<'info, TokenAccount>,
 
@@ -376,9 +376,9 @@ pub struct Pay<'info> {
         mut,
         seeds = [b"mandate", mandate.owner.as_ref(), mandate.agent.as_ref()],
         bump = mandate.bump,
-        has_one = agent @ WritError::NotMandateAgent,
-        has_one = mint @ WritError::WrongMint,
-        has_one = vault @ WritError::WrongVault,
+        has_one = agent @ ChainwritError::NotMandateAgent,
+        has_one = mint @ ChainwritError::WrongMint,
+        has_one = vault @ ChainwritError::WrongVault,
     )]
     pub mandate: Account<'info, Mandate>,
 
@@ -389,7 +389,7 @@ pub struct Pay<'info> {
 
     #[account(
         mut,
-        constraint = merchant_token_account.mint == mandate.mint @ WritError::WrongMint,
+        constraint = merchant_token_account.mint == mandate.mint @ ChainwritError::WrongMint,
     )]
     pub merchant_token_account: Account<'info, TokenAccount>,
 
@@ -404,7 +404,7 @@ pub struct Revoke<'info> {
         mut,
         seeds = [b"mandate", mandate.owner.as_ref(), mandate.agent.as_ref()],
         bump = mandate.bump,
-        has_one = owner @ WritError::NotMandateOwner,
+        has_one = owner @ ChainwritError::NotMandateOwner,
     )]
     pub mandate: Account<'info, Mandate>,
 }
@@ -417,9 +417,9 @@ pub struct Withdraw<'info> {
     #[account(
         seeds = [b"mandate", mandate.owner.as_ref(), mandate.agent.as_ref()],
         bump = mandate.bump,
-        has_one = owner @ WritError::NotMandateOwner,
-        has_one = mint @ WritError::WrongMint,
-        has_one = vault @ WritError::WrongVault,
+        has_one = owner @ ChainwritError::NotMandateOwner,
+        has_one = mint @ ChainwritError::WrongMint,
+        has_one = vault @ ChainwritError::WrongVault,
     )]
     pub mandate: Account<'info, Mandate>,
 
@@ -430,8 +430,8 @@ pub struct Withdraw<'info> {
 
     #[account(
         mut,
-        constraint = owner_token_account.owner == owner.key() @ WritError::NotMandateOwner,
-        constraint = owner_token_account.mint == mandate.mint @ WritError::WrongMint,
+        constraint = owner_token_account.owner == owner.key() @ ChainwritError::NotMandateOwner,
+        constraint = owner_token_account.mint == mandate.mint @ ChainwritError::WrongMint,
     )]
     pub owner_token_account: Account<'info, TokenAccount>,
 
@@ -478,7 +478,7 @@ pub struct MandateRevoked {
 
 #[error_code]
 #[derive(PartialEq, Eq)]
-pub enum WritError {
+pub enum ChainwritError {
     #[msg("This merchant is not on the mandate's allowlist")]
     MerchantNotAllowed,
     #[msg("Payment exceeds the per-payment limit")]

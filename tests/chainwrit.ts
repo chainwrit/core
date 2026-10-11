@@ -1,12 +1,12 @@
 /**
- * Integration tests for the Writ program.
+ * Integration tests for the Chainwrit program.
  *
  * These run against a local validator via `anchor test`. They cover the full
  * path — real SPL token accounts, real CPI transfers, real PDA signing — and
  * assert that every rule in the mandate rejects a payment that breaks it.
  *
  * The pure policy logic is additionally unit-tested in Rust:
- *   cargo test -p writ
+ *   cargo test -p chainwrit
  */
 
 import * as anchor from "@coral-xyz/anchor";
@@ -19,16 +19,16 @@ import {
   getAccount,
 } from "@solana/spl-token";
 import { assert, expect } from "chai";
-import { Writ } from "../target/types/writ";
+import { Chainwrit } from "../target/types/chainwrit";
 
 const USDC_DECIMALS = 6;
 const usdc = (n: number) => new BN(Math.round(n * 10 ** USDC_DECIMALS));
 
-describe("writ", () => {
+describe("chainwrit", () => {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
 
-  const program = anchor.workspace.Writ as Program<Writ>;
+  const program = anchor.workspace.Chainwrit as Program<Chainwrit>;
   const connection = provider.connection;
   const owner = provider.wallet as anchor.Wallet;
 

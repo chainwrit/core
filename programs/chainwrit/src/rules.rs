@@ -11,7 +11,7 @@
 
 use anchor_lang::prelude::*;
 
-use crate::{WritError, MAX_TASK_ID_LEN, WINDOW_SECONDS};
+use crate::{ChainwritError, MAX_TASK_ID_LEN, WINDOW_SECONDS};
 
 /// The mutable spend state of a mandate, as stored on-chain.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -49,24 +49,24 @@ pub fn evaluate(
     merchants: &[Pubkey],
     request: PaymentRequest<'_>,
     now: i64,
-) -> std::result::Result<Approval, WritError> {
+) -> std::result::Result<Approval, ChainwritError> {
     if request.amount == 0 {
-        return Err(WritError::ZeroAmount);
+        return Err(ChainwritError::ZeroAmount);
     }
     if request.task_id.len() > MAX_TASK_ID_LEN {
-        return Err(WritError::TaskIdTooLong);
+        return Err(ChainwritError::TaskIdTooLong);
     }
     if state.revoked {
-        return Err(WritError::MandateRevoked);
+        return Err(ChainwritError::MandateRevoked);
     }
     if now >= state.expires_at {
-        return Err(WritError::MandateExpired);
+        return Err(ChainwritError::MandateExpired);
     }
     if request.amount > state.max_per_payment {
-        return Err(WritError::ExceedsPerPaymentLimit);
+        return Err(ChainwritError::ExceedsPerPaymentLimit);
     }
     if !merchants.contains(&request.merchant) {
-        return Err(WritError::MerchantNotAllowed);
+        return Err(ChainwritError::MerchantNotAllowed);
     }
 
     // Roll the window forward if the previous one has fully elapsed. Spend
@@ -79,10 +79,10 @@ pub fn evaluate(
 
     let spent_after = spent_so_far
         .checked_add(request.amount)
-        .ok_or(WritError::MathOverflow)?;
+        .ok_or(ChainwritError::MathOverflow)?;
 
     if spent_after > state.daily_limit {
-        return Err(WritError::ExceedsDailyLimit);
+        return Err(ChainwritError::ExceedsDailyLimit);
     }
 
     Ok(Approval {
@@ -150,7 +150,7 @@ mod tests {
         let err = evaluate(healthy(), &allowlist(), request(1_000_000, attacker()), NOW)
             .expect_err("payment to an unknown address must be rejected");
 
-        assert_eq!(err, WritError::MerchantNotAllowed);
+        assert_eq!(err, ChainwritError::MerchantNotAllowed);
     }
 
     /// A small payment to the attacker is still rejected: the allowlist, not the
@@ -160,7 +160,7 @@ mod tests {
         let err = evaluate(healthy(), &allowlist(), request(1, attacker()), NOW)
             .expect_err("amount does not make an unknown merchant acceptable");
 
-        assert_eq!(err, WritError::MerchantNotAllowed);
+        assert_eq!(err, ChainwritError::MerchantNotAllowed);
     }
 
     #[test]
@@ -168,7 +168,7 @@ mod tests {
         let err = evaluate(healthy(), &allowlist(), request(2_000_001, merchant_a()), NOW)
             .expect_err("payment above the cap must be rejected");
 
-        assert_eq!(err, WritError::ExceedsPerPaymentLimit);
+        assert_eq!(err, ChainwritError::ExceedsPerPaymentLimit);
     }
 
     #[test]
@@ -187,7 +187,7 @@ mod tests {
         let err = evaluate(state, &allowlist(), request(2_000_000, merchant_a()), NOW)
             .expect_err("crossing the daily limit must be rejected");
 
-        assert_eq!(err, WritError::ExceedsDailyLimit);
+        assert_eq!(err, ChainwritError::ExceedsDailyLimit);
     }
 
     #[test]
@@ -216,7 +216,7 @@ mod tests {
                     state.window_start = approval.window_start;
                 }
                 Err(err) => {
-                    assert_eq!(err, WritError::ExceedsDailyLimit);
+                    assert_eq!(err, ChainwritError::ExceedsDailyLimit);
                     break;
                 }
             }
@@ -233,7 +233,7 @@ mod tests {
         let err = evaluate(state, &allowlist(), request(1, merchant_a()), after_expiry)
             .expect_err("an expired mandate pays nothing");
 
-        assert_eq!(err, WritError::MandateExpired);
+        assert_eq!(err, ChainwritError::MandateExpired);
     }
 
     #[test]
@@ -243,7 +243,7 @@ mod tests {
         let err = evaluate(state, &allowlist(), request(1, merchant_a()), state.expires_at)
             .expect_err("expiry is exclusive");
 
-        assert_eq!(err, WritError::MandateExpired);
+        assert_eq!(err, ChainwritError::MandateExpired);
     }
 
     #[test]
@@ -254,7 +254,7 @@ mod tests {
         let err = evaluate(state, &allowlist(), request(1, merchant_a()), NOW)
             .expect_err("a revoked mandate pays nothing");
 
-        assert_eq!(err, WritError::MandateRevoked);
+        assert_eq!(err, ChainwritError::MandateRevoked);
     }
 
     /// Revocation beats every other rule, including a payment that would
@@ -289,7 +289,7 @@ mod tests {
         let err = evaluate(state, &allowlist(), request(1, merchant_a()), almost)
             .expect_err("the window has not rolled over yet");
 
-        assert_eq!(err, WritError::ExceedsDailyLimit);
+        assert_eq!(err, ChainwritError::ExceedsDailyLimit);
     }
 
     #[test]
@@ -297,7 +297,7 @@ mod tests {
         let err = evaluate(healthy(), &allowlist(), request(0, merchant_a()), NOW)
             .expect_err("zero is not a payment");
 
-        assert_eq!(err, WritError::ZeroAmount);
+        assert_eq!(err, ChainwritError::ZeroAmount);
     }
 
     #[test]
@@ -311,7 +311,7 @@ mod tests {
 
         assert_eq!(
             evaluate(healthy(), &allowlist(), req, NOW).expect_err("task id is bounded"),
-            WritError::TaskIdTooLong
+            ChainwritError::TaskIdTooLong
         );
     }
 
@@ -325,7 +325,7 @@ mod tests {
         let err = evaluate(state, &allowlist(), request(1, merchant_a()), NOW)
             .expect_err("saturated spend must not wrap around");
 
-        assert_eq!(err, WritError::MathOverflow);
+        assert_eq!(err, ChainwritError::MathOverflow);
     }
 
     /// Rule precedence: an expired mandate is rejected for being expired, not
@@ -338,6 +338,6 @@ mod tests {
         let err = evaluate(state, &allowlist(), request(u64::MAX, attacker()), NOW)
             .expect_err("should fail");
 
-        assert_eq!(err, WritError::MandateRevoked);
+        assert_eq!(err, ChainwritError::MandateRevoked);
     }
 }

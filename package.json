@@ -1,11 +1,11 @@
 {
-  "name": "writ",
+  "name": "chainwrit",
   "version": "0.1.0",
   "description": "On-chain spending mandates for autonomous AI agents",
   "license": "Apache-2.0",
   "scripts": {
     "test": "anchor test",
-    "test:rules": "cargo test -p writ",
+    "test:rules": "cargo test -p chainwrit",
     "lint": "prettier --check 'tests/**/*.ts'",
     "lint:fix": "prettier --write 'tests/**/*.ts'"
   },

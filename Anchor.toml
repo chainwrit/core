@@ -6,10 +6,10 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-writ = "6cc4F1dBC34KwyJFphJqAJfuSudNhUA6W2UNozUsVqrT"
+chainwrit = "6cc4F1dBC34KwyJFphJqAJfuSudNhUA6W2UNozUsVqrT"
 
 [programs.devnet]
-writ = "6cc4F1dBC34KwyJFphJqAJfuSudNhUA6W2UNozUsVqrT"
+chainwrit = "6cc4F1dBC34KwyJFphJqAJfuSudNhUA6W2UNozUsVqrT"
 
 [registry]
 url = "https://api.apr.dev"
