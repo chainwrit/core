@@ -19,9 +19,7 @@ use anchor_spl::token::{self, Mint, Token, TokenAccount, TransferChecked};
 
 pub mod rules;
 
-// Placeholder program id. `anchor keys sync` replaces this with the keypair in
-// target/deploy once you build locally.
-declare_id!("6cc4F1dBC34KwyJFphJqAJfuSudNhUA6W2UNozUsVqrT");
+declare_id!("5BSoxqzNLqi7aZxLMRWCGXCm186aaUzswjHV7i99P9FW");
 
 /// Maximum number of merchant addresses a single mandate may allow.
 pub const MAX_MERCHANTS: usize = 10;

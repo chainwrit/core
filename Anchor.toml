@@ -5,11 +5,11 @@ anchor_version = "0.32.1"
 resolution = true
 skip-lint = false
 
-[programs.localnet]
-chainwrit = "6cc4F1dBC34KwyJFphJqAJfuSudNhUA6W2UNozUsVqrT"
-
 [programs.devnet]
-chainwrit = "6cc4F1dBC34KwyJFphJqAJfuSudNhUA6W2UNozUsVqrT"
+chainwrit = "5BSoxqzNLqi7aZxLMRWCGXCm186aaUzswjHV7i99P9FW"
+
+[programs.localnet]
+chainwrit = "5BSoxqzNLqi7aZxLMRWCGXCm186aaUzswjHV7i99P9FW"
 
 [registry]
 url = "https://api.apr.dev"
