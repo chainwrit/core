@@ -190,6 +190,21 @@ pub mod writ {
 
         Ok(())
     }
+
+    /// Revoke the mandate. Takes effect on the next payment attempt, immediately.
+    pub fn revoke(ctx: Context<Revoke>) -> Result<()> {
+        let mandate = &mut ctx.accounts.mandate;
+        require!(!mandate.revoked, WritError::MandateRevoked);
+        mandate.revoked = true;
+
+        emit!(MandateRevoked {
+            mandate: mandate.key(),
+            owner: mandate.owner,
+            timestamp: Clock::get()?.unix_timestamp,
+        });
+
+        Ok(())
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -345,6 +360,19 @@ pub struct Pay<'info> {
     pub token_program: Program<'info, Token>,
 }
 
+#[derive(Accounts)]
+pub struct Revoke<'info> {
+    pub owner: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"mandate", mandate.owner.as_ref(), mandate.agent.as_ref()],
+        bump = mandate.bump,
+        has_one = owner @ WritError::NotMandateOwner,
+    )]
+    pub mandate: Account<'info, Mandate>,
+}
+
 // ---------------------------------------------------------------------------
 // Events
 // ---------------------------------------------------------------------------
@@ -369,6 +397,13 @@ pub struct PaymentExecuted {
     pub amount: u64,
     pub task_id: String,
     pub spent_in_window: u64,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct MandateRevoked {
+    pub mandate: Pubkey,
+    pub owner: Pubkey,
     pub timestamp: i64,
 }
 
