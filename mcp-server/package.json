@@ -4,19 +4,46 @@
   "description": "MCP server that lets an agent pay through a Chainwrit mandate",
   "license": "Apache-2.0",
   "main": "dist/index.js",
-  "bin": { "chainwrit-mcp": "dist/index.js" },
+  "bin": {
+    "chainwrit-mcp": "dist/index.js"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@chainwrit/sdk": "0.2.0",
     "@modelcontextprotocol/sdk": "^1.17.0",
     "@solana/web3.js": "^1.99.0",
+    "rpc-websockets": "^9.3.10",
     "zod": "^3.25.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "typescript": "^5.7.3"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chainwrit/core.git",
+    "directory": "mcp-server"
+  },
+  "homepage": "https://chainwrit.vercel.app",
+  "keywords": [
+    "mcp",
+    "solana",
+    "ai-agents",
+    "payments",
+    "chainwrit"
+  ],
+  "publishConfig": {
+    "access": "public"
   }
 }
