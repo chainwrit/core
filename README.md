@@ -7,6 +7,7 @@ A human signs a mandate that names who an agent may pay, how much per payment, h
 > **The guarantee:** even if the agent is manipulated, its server compromised and its signing key stolen, funds cannot move outside the mandate.
 
 - **Live demo:** https://chainwrit.vercel.app ([/demo](https://chainwrit.vercel.app/demo)), source in [chainwrit/web](https://github.com/chainwrit/web)
+- **App:** https://chainwrit-app.vercel.app: connect a wallet, create, fund and revoke mandates. Source in [chainwrit/app](https://github.com/chainwrit/app)
 - **SDK:** [`@chainwrit/sdk`](https://www.npmjs.com/package/@chainwrit/sdk) on npm
 - **Program (devnet):** [`5BSoxqzNLqi7aZxLMRWCGXCm186aaUzswjHV7i99P9FW`](https://explorer.solana.com/address/5BSoxqzNLqi7aZxLMRWCGXCm186aaUzswjHV7i99P9FW?cluster=devnet)
 - **Token:** `dUSDC`, our own devnet test mint ([`FqLbwG…LY6T5`](https://explorer.solana.com/address/FqLbwGWwNQ5PBYZhEbmfPMX9yw13easpRqtxh3CLY6T5?cluster=devnet)). It has no value.
