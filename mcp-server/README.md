@@ -27,7 +27,7 @@ Runs on **devnet** with `dUSDC`, a test mint with no value. The program has not 
 
 3. Restart the client and ask it to "check my mandate".
 
-Requires Node.js 18 or newer on the machine running the client.
+Requires Node.js 22 (or 20.18+) on the machine running the client.
 
 ## Environment
 
