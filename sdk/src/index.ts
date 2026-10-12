@@ -294,38 +294,39 @@ export async function fetchActivity(
     if (!tx?.meta) return [];
     const signature = sigs[i].signature;
     const keys = tx.transaction.message.getAccountKeys().staticAccountKeys;
-    const ix = tx.transaction.message.compiledInstructions.find((c) => keys[c.programIdIndex].equals(PROGRAM_ID));
-    if (!ix) return [];
+    const events = parser.parseLogs(tx.meta.logMessages ?? []);
+    const paidTo = [...events].find((ev) => ev.name === "paymentExecuted" || ev.name === "PaymentExecuted");
 
-    const decoded = coder.instruction.decode(Buffer.from(ix.data));
-    const kind = (decoded && kinds[decoded.name]) || "other";
-    const data = (decoded?.data ?? {}) as { amount?: BN; taskId?: string; task_id?: string };
-    const entry: ActivityEntry = {
-      signature,
-      time: tx.blockTime ?? null,
-      kind,
-      amount: data.amount ? BigInt(data.amount.toString()) : undefined,
-      taskId: data.taskId ?? data.task_id,
-    };
+    // One transaction can carry several program instructions (create + deposit).
+    return tx.transaction.message.compiledInstructions
+      .filter((c) => keys[c.programIdIndex].equals(PROGRAM_ID))
+      .map((ix) => {
+        const decoded = coder.instruction.decode(Buffer.from(ix.data));
+        const kind = (decoded && kinds[decoded.name]) || "other";
+        const data = (decoded?.data ?? {}) as { amount?: BN; taskId?: string; task_id?: string };
+        const entry: ActivityEntry = {
+          signature,
+          time: tx.blockTime ?? null,
+          kind,
+          amount: data.amount ? BigInt(data.amount.toString()) : undefined,
+          taskId: data.taskId ?? data.task_id,
+        };
 
-    if (kind === "pay") {
-      // Pay accounts: agent, mandate, mint, vault, merchant_token_account.
-      const merchantIdx = ix.accountKeyIndexes[4];
-      const owner = [...(tx.meta.postTokenBalances ?? []), ...(tx.meta.preTokenBalances ?? [])].find(
-        (b) => b.accountIndex === merchantIdx,
-      )?.owner;
-      entry.merchant = owner;
-      for (const ev of parser.parseLogs(tx.meta.logMessages ?? [])) {
-        if (ev.name === "paymentExecuted" || ev.name === "PaymentExecuted") {
-          entry.merchant = (ev.data as any).merchant.toBase58();
+        if (kind === "pay") {
+          // Pay accounts: agent, mandate, mint, vault, merchant_token_account.
+          const merchantIdx = ix.accountKeyIndexes[4];
+          entry.merchant = paidTo
+            ? (paidTo.data as any).merchant.toBase58()
+            : [...(tx.meta!.postTokenBalances ?? []), ...(tx.meta!.preTokenBalances ?? [])].find(
+                (b) => b.accountIndex === merchantIdx,
+              )?.owner;
         }
-      }
-    }
-    if (tx.meta.err) {
-      entry.error = decodeError(tx.meta.err);
-      if (kind === "pay") entry.kind = "rejected";
-    }
-    return [entry];
+        if (tx.meta!.err) {
+          entry.error = decodeError(tx.meta!.err);
+          if (kind === "pay") entry.kind = "rejected";
+        }
+        return entry;
+      });
   });
 }
 
