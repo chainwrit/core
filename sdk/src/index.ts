@@ -1,8 +1,10 @@
-import { AnchorProvider, BN, Program, Wallet } from "@coral-xyz/anchor";
+import { AnchorProvider, BN, BorshCoder, EventParser, Program } from "@coral-xyz/anchor";
 import {
+  createAssociatedTokenAccountIdempotentInstruction,
   getAccount,
   getAssociatedTokenAddressSync,
   TOKEN_PROGRAM_ID,
+  unpackAccount,
 } from "@solana/spl-token";
 import {
   Commitment,
@@ -11,6 +13,8 @@ import {
   PublicKey,
   SendOptions,
   Transaction,
+  TransactionInstruction,
+  VersionedTransaction,
 } from "@solana/web3.js";
 
 import idl from "./idl/chainwrit.json";
@@ -38,9 +42,31 @@ export function vaultPda(mandate: PublicKey): PublicKey {
   )[0];
 }
 
+/** What Anchor needs to sign: a browser wallet adapter fits this shape. */
+export interface WalletLike {
+  publicKey: PublicKey;
+  signTransaction<T extends Transaction | VersionedTransaction>(tx: T): Promise<T>;
+  signAllTransactions<T extends Transaction | VersionedTransaction>(txs: T[]): Promise<T[]>;
+}
+
+// Anchor's own Wallet class is Node-only, so wrap a keypair by hand to keep
+// this package usable in the browser.
+export function keypairWallet(kp: Keypair): WalletLike {
+  const sign = <T extends Transaction | VersionedTransaction>(tx: T): T => {
+    if (tx instanceof VersionedTransaction) tx.sign([kp]);
+    else tx.partialSign(kp);
+    return tx;
+  };
+  return {
+    publicKey: kp.publicKey,
+    signTransaction: async (tx) => sign(tx),
+    signAllTransactions: async (txs) => txs.map(sign),
+  };
+}
+
 /** Anchor needs a wallet even for read-only use; a throwaway key is fine. */
-export function getProgram(connection: Connection, signer?: Keypair): Program<Chainwrit> {
-  const wallet = new Wallet(signer ?? Keypair.generate());
+export function getProgram(connection: Connection, signer?: Keypair | WalletLike): Program<Chainwrit> {
+  const wallet = signer instanceof Keypair || !signer ? keypairWallet(signer ?? Keypair.generate()) : signer;
   const provider = new AnchorProvider(connection, wallet, { commitment: "confirmed" });
   return new Program<Chainwrit>(idl as Chainwrit, provider);
 }
@@ -67,15 +93,9 @@ export interface MandateView {
   vaultBalance: bigint;
 }
 
-export async function fetchMandate(
-  connection: Connection,
-  address: PublicKey,
-  now = Math.floor(Date.now() / 1000),
-): Promise<MandateView> {
-  const program = getProgram(connection);
-  const m = await program.account.mandate.fetch(address);
-  const vault = await getAccount(connection, m.vault, "confirmed");
+type MandateAccount = Awaited<ReturnType<Program<Chainwrit>["account"]["mandate"]["fetch"]>>;
 
+function toView(address: PublicKey, m: MandateAccount, vaultBalance: bigint, now: number): MandateView {
   const windowStart = m.windowStart.toNumber();
   const windowOpen = now - windowStart < WINDOW_SECONDS;
   const dailyLimit = BigInt(m.dailyLimit.toString());
@@ -98,8 +118,215 @@ export async function fetchMandate(
     revoked: m.revoked,
     totalSpent: BigInt(m.totalSpent.toString()),
     paymentCount: BigInt(m.paymentCount.toString()),
-    vaultBalance: vault.amount,
+    vaultBalance,
   };
+}
+
+export async function fetchMandate(
+  connection: Connection,
+  address: PublicKey,
+  now = Math.floor(Date.now() / 1000),
+): Promise<MandateView> {
+  const program = getProgram(connection);
+  const m = await program.account.mandate.fetch(address);
+  const vault = await getAccount(connection, m.vault, "confirmed");
+  return toView(address, m, vault.amount, now);
+}
+
+/** Every mandate created by `owner`, newest expiry first. */
+export async function listMandatesByOwner(
+  connection: Connection,
+  owner: PublicKey,
+  now = Math.floor(Date.now() / 1000),
+): Promise<MandateView[]> {
+  const program = getProgram(connection);
+  // The owner pubkey sits right after the 8-byte account discriminator.
+  const rows = await program.account.mandate.all([{ memcmp: { offset: 8, bytes: owner.toBase58() } }]);
+  if (!rows.length) return [];
+  const vaults = await connection.getMultipleAccountsInfo(rows.map((r) => r.account.vault), "confirmed");
+  return rows
+    .map((r, i) => {
+      const info = vaults[i];
+      const amount = info ? unpackAccount(r.account.vault, info).amount : 0n;
+      return toView(r.publicKey, r.account, amount, now);
+    })
+    .sort((a, b) => b.expiresAt - a.expiresAt);
+}
+
+/**
+ * Instruction builders for wallets that sign elsewhere (a browser extension, a
+ * multisig). Each returns plain instructions to put in a transaction.
+ */
+export async function buildCreateMandate(
+  connection: Connection,
+  owner: PublicKey,
+  args: {
+    agent: PublicKey;
+    mint: PublicKey;
+    maxPerPayment: bigint | number;
+    dailyLimit: bigint | number;
+    expiresAt: number;
+    merchants: PublicKey[];
+    deposit?: bigint | number;
+  },
+): Promise<{ instructions: TransactionInstruction[]; mandate: PublicKey; vault: PublicKey }> {
+  const program = getProgram(connection);
+  const mandate = mandatePda(owner, args.agent);
+  const vault = vaultPda(mandate);
+  const instructions = [
+    await program.methods
+      .createMandate(
+        new BN(args.maxPerPayment.toString()),
+        new BN(args.dailyLimit.toString()),
+        new BN(args.expiresAt),
+        args.merchants,
+      )
+      .accountsPartial({ owner, agent: args.agent, mint: args.mint, mandate, vault })
+      .instruction(),
+  ];
+  if (args.deposit && BigInt(args.deposit) > 0n) {
+    instructions.push(
+      await program.methods
+        .deposit(new BN(args.deposit.toString()))
+        .accountsPartial({
+          owner,
+          mandate,
+          mint: args.mint,
+          vault,
+          ownerTokenAccount: getAssociatedTokenAddressSync(args.mint, owner),
+        })
+        .instruction(),
+    );
+  }
+  return { instructions, mandate, vault };
+}
+
+export async function buildDeposit(
+  connection: Connection,
+  owner: PublicKey,
+  mandate: PublicKey,
+  amount: bigint | number,
+): Promise<TransactionInstruction[]> {
+  const program = getProgram(connection);
+  const m = await program.account.mandate.fetch(mandate);
+  return [
+    await program.methods
+      .deposit(new BN(amount.toString()))
+      .accountsPartial({
+        owner,
+        mandate,
+        mint: m.mint,
+        vault: m.vault,
+        ownerTokenAccount: getAssociatedTokenAddressSync(m.mint, owner),
+      })
+      .instruction(),
+  ];
+}
+
+export async function buildWithdraw(
+  connection: Connection,
+  owner: PublicKey,
+  mandate: PublicKey,
+  amount: bigint | number,
+): Promise<TransactionInstruction[]> {
+  const program = getProgram(connection);
+  const m = await program.account.mandate.fetch(mandate);
+  const ownerTokenAccount = getAssociatedTokenAddressSync(m.mint, owner);
+  return [
+    // The owner may never have held this token; make sure the account exists.
+    createAssociatedTokenAccountIdempotentInstruction(owner, ownerTokenAccount, owner, m.mint),
+    await program.methods
+      .withdraw(new BN(amount.toString()))
+      .accountsPartial({ owner, mandate, mint: m.mint, vault: m.vault, ownerTokenAccount })
+      .instruction(),
+  ];
+}
+
+export async function buildRevoke(
+  connection: Connection,
+  owner: PublicKey,
+  mandate: PublicKey,
+): Promise<TransactionInstruction[]> {
+  const program = getProgram(connection);
+  return [await program.methods.revoke().accountsPartial({ owner, mandate }).instruction()];
+}
+
+export interface ActivityEntry {
+  signature: string;
+  time: number | null;
+  kind: "create" | "deposit" | "pay" | "rejected" | "revoke" | "withdraw" | "other";
+  amount?: bigint;
+  /** Wallet that was paid, or that an agent tried to pay. */
+  merchant?: string;
+  taskId?: string;
+  error?: { code: number | null; name: string; message: string };
+}
+
+/**
+ * Recent activity on a mandate, including payments the program rejected.
+ * Reads the transactions that touched the mandate account; no indexer needed
+ * at demo scale.
+ */
+export async function fetchActivity(
+  connection: Connection,
+  mandate: PublicKey,
+  limit = 25,
+): Promise<ActivityEntry[]> {
+  const sigs = await connection.getSignaturesForAddress(mandate, { limit }, "confirmed");
+  if (!sigs.length) return [];
+  const txs = await connection.getTransactions(
+    sigs.map((s) => s.signature),
+    { commitment: "confirmed", maxSupportedTransactionVersion: 0 },
+  );
+
+  const coder = new BorshCoder(idl as Chainwrit);
+  const parser = new EventParser(PROGRAM_ID, coder);
+  const kinds: Record<string, ActivityEntry["kind"]> = {
+    createMandate: "create",
+    create_mandate: "create",
+    deposit: "deposit",
+    pay: "pay",
+    revoke: "revoke",
+    withdraw: "withdraw",
+  };
+
+  return txs.flatMap((tx, i) => {
+    if (!tx?.meta) return [];
+    const signature = sigs[i].signature;
+    const keys = tx.transaction.message.getAccountKeys().staticAccountKeys;
+    const ix = tx.transaction.message.compiledInstructions.find((c) => keys[c.programIdIndex].equals(PROGRAM_ID));
+    if (!ix) return [];
+
+    const decoded = coder.instruction.decode(Buffer.from(ix.data));
+    const kind = (decoded && kinds[decoded.name]) || "other";
+    const data = (decoded?.data ?? {}) as { amount?: BN; taskId?: string; task_id?: string };
+    const entry: ActivityEntry = {
+      signature,
+      time: tx.blockTime ?? null,
+      kind,
+      amount: data.amount ? BigInt(data.amount.toString()) : undefined,
+      taskId: data.taskId ?? data.task_id,
+    };
+
+    if (kind === "pay") {
+      // Pay accounts: agent, mandate, mint, vault, merchant_token_account.
+      const merchantIdx = ix.accountKeyIndexes[4];
+      const owner = [...(tx.meta.postTokenBalances ?? []), ...(tx.meta.preTokenBalances ?? [])].find(
+        (b) => b.accountIndex === merchantIdx,
+      )?.owner;
+      entry.merchant = owner;
+      for (const ev of parser.parseLogs(tx.meta.logMessages ?? [])) {
+        if (ev.name === "paymentExecuted" || ev.name === "PaymentExecuted") {
+          entry.merchant = (ev.data as any).merchant.toBase58();
+        }
+      }
+    }
+    if (tx.meta.err) {
+      entry.error = decodeError(tx.meta.err);
+      if (kind === "pay") entry.kind = "rejected";
+    }
+    return [entry];
+  });
 }
 
 export async function createMandate(

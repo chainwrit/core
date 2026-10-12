@@ -10,7 +10,7 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "@chainwrit/sdk": "0.1.0",
+    "@chainwrit/sdk": "0.2.0",
     "@modelcontextprotocol/sdk": "^1.17.0",
     "@solana/web3.js": "^1.99.0",
     "zod": "^3.25.0"
