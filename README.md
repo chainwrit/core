@@ -132,29 +132,25 @@ Gives any MCP client (the demo uses Claude Desktop) a wallet it cannot misuse.
 | `fetch_page { url }` | Page text including hidden elements, the way a naive scraper sees it |
 | `buy_data { url }` | x402-style purchase: GET, 402 with requirements, `pay_merchant`, retry with `X-PAYMENT: <signature>` |
 
-```bash
-yarn build:sdk && yarn build:mcp
-```
-
-`claude_desktop_config.json`:
+Published as [`@chainwrit/mcp-server`](https://www.npmjs.com/package/@chainwrit/mcp-server). Create a mandate and an agent key at https://chainwrit-app.vercel.app, then in `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "chainwrit": {
-      "command": "node",
-      "args": ["/abs/path/chainwrit/mcp-server/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "@chainwrit/mcp-server"],
       "env": {
         "RPC_URL": "https://api.devnet.solana.com",
-        "AGENT_KEYPAIR_PATH": "/abs/path/keys/agent.json",
-        "DEPLOYMENTS_PATH": "/abs/path/chainwrit/deployments/devnet.json"
+        "AGENT_KEYPAIR_PATH": "/abs/path/agent.json",
+        "MANDATE": "<mandate address>"
       }
     }
   }
 }
 ```
 
-`MANDATE` can override the mandate from the deployments file.
+From a clone instead: `yarn build:sdk && yarn build:mcp`, then use `"command": "node"` with `"args": ["/abs/path/chainwrit/mcp-server/dist/index.js"]`. `DEPLOYMENTS_PATH` can point at `deployments/devnet.json` to supply the mandate and merchant names.
 
 ## The x402-style flow
 
