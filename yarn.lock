@@ -8,7 +8,7 @@
   integrity sha512-NpugTzbKgGrNe45Ui32cN8vCFFMxVtP/9rtfwv0nP5FRDAjvYBxJcLVpYA9mr1jxP6cnIT7x9LUzuDTbWYYNRA==
 
 "@chainwrit/mcp-server@file:/Users/shashwotbhattarai/repos/hackathon/chainwrit/mcp-server":
-  version "0.1.1"
+  version "0.1.2"
   resolved "file:mcp-server"
   dependencies:
     "@chainwrit/sdk" "0.2.0"
