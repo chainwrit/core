@@ -47,7 +47,7 @@ Requires Node.js 22 (or 20.18+) on the machine running the client.
 | `fetch_page { url }` | Page text including hidden elements, the way a naive scraper sees it |
 | `buy_data { url }` | x402-style purchase: GET, 402 with requirements, pay, retry with `X-PAYMENT: <signature>` |
 
-Try `buy_data` with `https://chainwrit.vercel.app/api/merchant/report` (the app's default merchant), and `fetch_page` with `https://chainwrit.vercel.app/poisoned`, which hides an instruction to pay an attacker.
+Try `buy_data` with `https://chainwrit.vercel.app/api/merchant/report` (the app's default merchant), and `fetch_page` with `https://chainwrit.vercel.app/gpu-prices`, which hides an instruction to pay an attacker.
 
 ## License
 

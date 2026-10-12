@@ -162,7 +162,7 @@ From a clone instead: `yarn build:sdk && yarn build:mcp`, then use `"command": "
 
 ## Live demo
 
-[`/demo`](https://chainwrit.vercel.app/demo) runs a scripted agent (no LLM) with a devnet key: it buys the report through the 402 flow, then reads [`/poisoned`](https://chainwrit.vercel.app/poisoned), an article with a hidden instruction to pay the attacker, and obeys it. The program rejects the payment on-chain, and the failed transaction is linked. Runs are rate-limited per visitor, and the mandate's own 24-hour cap bounds what the public demo can spend.
+[`/demo`](https://chainwrit.vercel.app/demo) runs a scripted agent (no LLM) with a devnet key: it buys the report through the 402 flow, then reads [`/gpu-prices`](https://chainwrit.vercel.app/gpu-prices), an article with a hidden instruction to pay the attacker, and obeys it. The program rejects the payment on-chain, and the failed transaction is linked. Runs are rate-limited per visitor, and the mandate's own 24-hour cap bounds what the public demo can spend.
 
 ## Limitations
 
