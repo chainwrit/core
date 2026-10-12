@@ -6,7 +6,8 @@ A human signs a mandate that names who an agent may pay, how much per payment, h
 
 > **The guarantee:** even if the agent is manipulated, its server compromised and its signing key stolen, funds cannot move outside the mandate.
 
-- **Live demo:** https://chainwrit.vercel.app ([/demo](https://chainwrit.vercel.app/demo))
+- **Live demo:** https://chainwrit.vercel.app ([/demo](https://chainwrit.vercel.app/demo)), source in [chainwrit/web](https://github.com/chainwrit/web)
+- **SDK:** [`@chainwrit/sdk`](https://www.npmjs.com/package/@chainwrit/sdk) on npm
 - **Program (devnet):** [`5BSoxqzNLqi7aZxLMRWCGXCm186aaUzswjHV7i99P9FW`](https://explorer.solana.com/address/5BSoxqzNLqi7aZxLMRWCGXCm186aaUzswjHV7i99P9FW?cluster=devnet)
 - **Token:** `dUSDC`, our own devnet test mint ([`FqLbwG…LY6T5`](https://explorer.solana.com/address/FqLbwGWwNQ5PBYZhEbmfPMX9yw13easpRqtxh3CLY6T5?cluster=devnet)). It has no value.
 
@@ -82,9 +83,8 @@ programs/chainwrit/   Anchor program
   src/lib.rs          instructions, accounts, events, errors
   src/rules.rs        the policy engine + 19 unit tests
 tests/                integration tests on a local validator (17)
-sdk/                  TypeScript client: PDAs, instructions, readable errors
+sdk/                  TypeScript client (@chainwrit/sdk): PDAs, instructions, readable errors
 mcp-server/           MCP server (stdio) exposing the mandate to any MCP client
-web/                  Next.js landing page, live demo, x402-style merchant API
 scripts/              devnet seed and the stolen-key attack
 deployments/          public devnet addresses and proof transactions
 ```
@@ -157,7 +157,7 @@ yarn build:sdk && yarn build:mcp
 
 ## The x402-style flow
 
-`/api/merchant/report` follows the HTTP 402 pattern. It is **not** a spec-compliant x402 facilitator.
+`/api/merchant/report` in [chainwrit/web](https://github.com/chainwrit/web) follows the HTTP 402 pattern. It is **not** a spec-compliant x402 facilitator.
 
 1. `GET` without payment returns `402` and `{ amount, decimals, mint, recipient, program, mandate, reference }`.
 2. The agent pays through its mandate.
