@@ -6,7 +6,7 @@ Runs on **devnet** with `dUSDC`, a test mint with no value. The program has not 
 
 ## Setup
 
-1. Create a mandate at https://chainwrit-app.vercel.app: connect a wallet, get test dUSDC from the faucet, then **New mandate → Generate** and download the agent key file.
+1. Create a mandate at https://chainwrit.com/app: connect a wallet, get test dUSDC from the faucet, then **New mandate → Generate** and download the agent key file.
 2. Add the server to your MCP client. For Claude Desktop, edit `claude_desktop_config.json` (Settings → Developer → Edit Config):
 
 ```json
@@ -47,7 +47,7 @@ Requires Node.js 22 (or 20.18+) on the machine running the client.
 | `fetch_page { url }` | Page text including hidden elements, the way a naive scraper sees it |
 | `buy_data { url }` | x402-style purchase: GET, 402 with requirements, pay, retry with `X-PAYMENT: <signature>` |
 
-Try `buy_data` with `https://chainwrit.vercel.app/api/merchant/report` (the app's default merchant), and `fetch_page` with `https://chainwrit.vercel.app/gpu-prices`, which hides an instruction to pay an attacker.
+Try `buy_data` with `https://chainwrit.com/api/merchant/report` (the app's default merchant), and `fetch_page` with `https://chainwrit.com/gpu-prices`, which hides an instruction to pay an attacker.
 
 ## License
 

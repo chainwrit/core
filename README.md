@@ -6,8 +6,8 @@ A human signs a mandate that names who an agent may pay, how much per payment, h
 
 > **The guarantee:** even if the agent is manipulated, its server compromised and its signing key stolen, funds cannot move outside the mandate.
 
-- **Live demo:** https://chainwrit.vercel.app ([/demo](https://chainwrit.vercel.app/demo)), source in [chainwrit/web](https://github.com/chainwrit/web)
-- **App:** https://chainwrit-app.vercel.app: connect a wallet, create, fund and revoke mandates. Source in [chainwrit/app](https://github.com/chainwrit/app)
+- **Live demo:** https://chainwrit.com ([/demo](https://chainwrit.com/demo)), source in [chainwrit/web](https://github.com/chainwrit/web)
+- **App:** https://chainwrit.com/app: connect a wallet, create, fund and revoke mandates. Source in [chainwrit/app](https://github.com/chainwrit/app)
 - **SDK:** [`@chainwrit/sdk`](https://www.npmjs.com/package/@chainwrit/sdk) on npm
 - **Program (devnet):** [`5BSoxqzNLqi7aZxLMRWCGXCm186aaUzswjHV7i99P9FW`](https://explorer.solana.com/address/5BSoxqzNLqi7aZxLMRWCGXCm186aaUzswjHV7i99P9FW?cluster=devnet)
 - **Token:** `dUSDC`, our own devnet test mint ([`FqLbwG…LY6T5`](https://explorer.solana.com/address/FqLbwGWwNQ5PBYZhEbmfPMX9yw13easpRqtxh3CLY6T5?cluster=devnet)). It has no value.
@@ -132,7 +132,7 @@ Gives any MCP client (the demo uses Claude Desktop) a wallet it cannot misuse.
 | `fetch_page { url }` | Page text including hidden elements, the way a naive scraper sees it |
 | `buy_data { url }` | x402-style purchase: GET, 402 with requirements, `pay_merchant`, retry with `X-PAYMENT: <signature>` |
 
-Published as [`@chainwrit/mcp-server`](https://www.npmjs.com/package/@chainwrit/mcp-server). Create a mandate and an agent key at https://chainwrit-app.vercel.app, then in `claude_desktop_config.json`:
+Published as [`@chainwrit/mcp-server`](https://www.npmjs.com/package/@chainwrit/mcp-server). Create a mandate and an agent key at https://chainwrit.com/app, then in `claude_desktop_config.json`:
 
 ```json
 {
@@ -162,7 +162,7 @@ From a clone instead: `yarn build:sdk && yarn build:mcp`, then use `"command": "
 
 ## Live demo
 
-[`/demo`](https://chainwrit.vercel.app/demo) runs a scripted agent (no LLM) with a devnet key: it buys the report through the 402 flow, then reads [`/gpu-prices`](https://chainwrit.vercel.app/gpu-prices), an article with a hidden instruction to pay the attacker, and obeys it. The program rejects the payment on-chain, and the failed transaction is linked. Runs are rate-limited per visitor, and the mandate's own 24-hour cap bounds what the public demo can spend.
+[`/demo`](https://chainwrit.com/demo) runs a scripted agent (no LLM) with a devnet key: it buys the report through the 402 flow, then reads [`/gpu-prices`](https://chainwrit.com/gpu-prices), an article with a hidden instruction to pay the attacker, and obeys it. The program rejects the payment on-chain, and the failed transaction is linked. Runs are rate-limited per visitor, and the mandate's own 24-hour cap bounds what the public demo can spend.
 
 ## Limitations
 

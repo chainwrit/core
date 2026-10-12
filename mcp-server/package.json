@@ -35,7 +35,7 @@
     "url": "git+https://github.com/chainwrit/core.git",
     "directory": "mcp-server"
   },
-  "homepage": "https://chainwrit.vercel.app",
+  "homepage": "https://chainwrit.com",
   "keywords": [
     "mcp",
     "solana",
