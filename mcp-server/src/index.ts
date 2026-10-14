@@ -5,7 +5,7 @@ import fs from "fs";
 import os from "os";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { Connection, Keypair, PublicKey } from "@solana/web3.js";
+import { Connection, Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { z } from "zod";
 import {
   explorerTx,
@@ -50,6 +50,19 @@ async function payMerchant(merchant: string, amount: number, memo?: string) {
     return { ok: false as const, report: `"${merchant}" is not a valid Solana address.` };
   }
 
+  // The agent pays its own transaction fees. With an empty balance the
+  // transaction is dropped before it reaches the program and simply expires.
+  const lamports = await connection.getBalance(agent.publicKey);
+  if (lamports < 10_000) {
+    return {
+      ok: false as const,
+      report:
+        `Payment not sent: the agent key ${agent.publicKey.toBase58()} has ${lamports / LAMPORTS_PER_SOL} SOL and cannot pay ` +
+        `the transaction fee. This is not a mandate rejection. Ask the mandate owner to send it about 0.01 SOL on devnet ` +
+        `(the "Send SOL" button on the mandate page at https://chainwrit.com/app), then try again.`,
+    };
+  }
+
   const r = await pay(
     connection,
     agent,
@@ -65,6 +78,15 @@ async function payMerchant(merchant: string, amount: number, memo?: string) {
       report: `Paid ${amount} ${symbol} to ${merchant}.\nSignature: ${r.signature}\nExplorer: ${explorerTx(r.signature)}`,
     };
   }
+  if (r.code === null) {
+    return {
+      ok: false as const,
+      report:
+        `The payment did not go through, and no funds moved. This was not a mandate rejection: the transaction ` +
+        `failed before the Chainwrit program ruled on it.\nReason: ${r.message}` +
+        (r.signature ? `\nTransaction: ${explorerTx(r.signature)}` : ""),
+    };
+  }
   return {
     ok: false as const,
     report:
@@ -74,21 +96,21 @@ async function payMerchant(merchant: string, amount: number, memo?: string) {
   };
 }
 
-const server = new McpServer({ name: "chainwrit", version: "0.1.0" });
+const server = new McpServer({ name: "chainwrit", version: "0.1.3" });
 
 server.tool(
   "get_mandate",
   "Show the spending mandate this agent operates under: allowed merchants, caps, what has been spent in the last 24 hours, expiry, and vault balance.",
   {},
   async () => {
-    const m = await fetchMandate(connection, mandate);
+    const [m, lamports] = await Promise.all([fetchMandate(connection, mandate), connection.getBalance(agent.publicKey)]);
     const now = Math.floor(Date.now() / 1000);
     const hours = (s: number) => `${Math.max(0, Math.round((s - now) / 360) / 10)}h`;
     return text(
       [
         `Mandate ${mandate.toBase58()} (devnet, token: ${symbol}, a test mint)`,
         `Owner: ${m.owner.toBase58()}`,
-        `Agent: ${m.agent.toBase58()}`,
+        `Agent: ${m.agent.toBase58()} (fee balance ${lamports / LAMPORTS_PER_SOL} SOL${lamports < 10_000 ? ", too low to send payments" : ""})`,
         `Allowed merchants:`,
         ...m.merchants.map((k) => `  - ${k.toBase58()}${knownNames[k.toBase58()] ? ` (${knownNames[k.toBase58()]})` : ""}`),
         `Per-payment cap: ${fmt(m.maxPerPayment)}`,
