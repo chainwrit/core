@@ -27,6 +27,8 @@ Runs on **devnet** with `dUSDC`, a test mint with no value. The program has not 
 
 3. Restart the client and ask it to "check my mandate".
 
+The agent key pays its own transaction fees, so it needs a little devnet SOL. Mandates created in the app send it 0.01 SOL automatically; for an older mandate, use **Send SOL** on its page. `get_mandate` shows the agent's fee balance.
+
 Requires Node.js 22 (or 20.18+) on the machine running the client.
 
 ## Environment
